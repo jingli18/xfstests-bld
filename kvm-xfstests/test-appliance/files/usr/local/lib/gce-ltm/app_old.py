@@ -1,5 +1,23 @@
-import os
-import sys
+#!/usr/bin/python
+"""Main webserver script of the gce-xfstests LTM.
+
+This script utilizes the flask web framework to respond to all URLs not
+directly served by the lighttpd server.
+
+This is run from the main fcgi executable. The return values here are
+served back to the lighttpd server over the FCGI socket.
+
+Main endpoints are:
+  /login - to authenticate, post only as this is intended to be done by a
+  command line script
+
+  /gce-xfstests - full gce-xfstests command line in b64 can be passed via
+  JSON in post data, and the LTM will run the test. The command itself
+  is passed into a TestRunManager object which manages the test run.
+
+All of the logging done in the server process is sent to the file
+"/var/log/lgtm/lgtm.log".
+"""
 import base64
 import binascii
 import logging
@@ -160,27 +178,6 @@ def gce_xfstests():
   except KeyError:
     opts = None
 
-
-  # If the request json has key 'bldsrv' then get the IP of the build server 
-  # and send the command message (encoded in base64) to it with POST.
-  try:
-  	bldsrv_config = json_data['bldsrv']
-  	status = os.popen('gcloud compute instances list')
-	instance = []
-	for line in status.readlines():
-    	instance.append(line)
-	BLD_SRV_URL = instance[1].split(' ')[-3]
-    all_message = {'encodedCMD': cmd_in_base64,
-                   'password': 123456}
-    r = requests.post(BLD_SRV_URL, data=all_message)
-    time.sleep(10)
-    call_TestRunManager(cmd_in_base64, opts)
-  except KeyError:
-  	bldsrv_config = None
-  	call_TestRunManager(cmd_in_base64, opts)
-
-
-def call_TestRunManager(cmd_in_base64, opts)
   try:
     test_run = TestRunManager(base64.decodestring(cmd_in_base64), opts)
     run_info = test_run.get_info()
@@ -198,6 +195,4 @@ def call_TestRunManager(cmd_in_base64, opts)
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0')
-
-
 
